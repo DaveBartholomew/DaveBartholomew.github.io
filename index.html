@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+
+<!--
+
+Experimental data visualisation example uses published apprenticeship starts data
+
+    Contact: Dave Bartholomew 
+    
+             Dave.Bartholomew@education.gov.uk            
+
+             Data Visualisation & Dissemination Lead 
+
+             Further Education Statistical Dissemination Team
+
+             Department for Education
+
+The code used for application is based on the following example and has been used with the kind permission of the original author: http://bl.ocks.org/diethardsteiner/3287802.
+
+-->
+
+<html>
+  <head>    
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>Apprenticeships Starts Dashboard</title>
+    <script type="text/javascript" src="http://d3js.org/d3.v2.js"></script>
+    <style type="text/css">
+
+#pieChart {    
+	position:absolute;
+	top:120px;
+	left:10px;
+	width:400px;
+	height: 400px; 
+}
+
+#lineChart {    
+	position:absolute;
+	top:125px;
+	left:475px;
+	height: 250px;
+}
+
+#barChart {
+	position:absolute;
+	top:500px;
+	left:475px;
+	height: 50px;
+}
+
+.slice {
+   font-size: 11pt;
+   font-family: Verdana;
+   fill: white; //svg specific - instead of color
+   font-weight: bold;	
+  		} 
+
+/*for line chart*/
+.axis path, .axis line {
+    fill: none;
+    stroke: black;
+    shape-rendering: crispEdges; // The shape-rendering property is an SVG attribute, used here to make 
+                                 // sure our axis and its tick mark lines are pixel-perfect. 
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 3px;
+}
+
+.dot {
+  fill: white;
+  stroke: steelblue;
+  stroke-width: 5px;
+  }
+
+.axis text {
+    font-family: Verdana;
+    font-size: 12px;
+}
+
+.title {
+    font-family: Verdana;
+    font-weight: bold;
+    font-size: 18px;	
+}
+
+.xAxis {
+    font-family: verdana;
+    font-size: 14px;
+    fill: black;
+}  
+
+.yAxis {
+    font-family: verdana;
+    font-size: 14px;
+    font-weight: bold;
+    fill: black; //colour for numbers in bar chart
+}
+
+table {
+	border-collapse:collapse;
+	border: 0px;	
+	font-family: Verdana;	
+	color: #5C5558;
+	font-size: 12px;
+	text-align: right;			
+}
+
+td {
+	padding-left: 10px;		
+}
+
+/*This is for the "Total Apps Starts: ..." title*/
+#lineChartTitle1 {
+	font-family: Verdana;
+	font-size  : 18px;
+	fill       : black;
+	font-weight: bold;
+	text-anchor: middle;
+}
+
+/*This is for the "Total" headline figure*/
+#lineChartTitle2 {
+	font-family: Verdana;
+	font-size  : 38px;
+	fill       : #000080;
+	text-anchor: middle;
+	font-weight: bold;
+	/*font-style: italic;*/
+}
+
+#lineChartTitle3 {
+	font-family: Verdana;
+	font-size  : 14px;
+	fill       : #000080;
+	text-anchor: middle;
+	font-weight: bold;
+	font-style: italic;
+}
+      .PageTitle {
+	font-size  : 40px;
+        font-family: arial;
+        fill: blue;
+        stroke: black;
+        stroke-width: 2px;
+      }
+      .PageTitle2 {
+	font-family: Verdana;
+	font-size  : 36px;
+	fill       : #000080;
+	font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+  
+    <svg width="1000" height="200">
+      <text class="PageTitle" x="50" y="50">Apprenticeship Starts Dashboard </text>
+      <text class="PageTitle2" x="500" y="160">Latest full-year total: </text>
+    </svg>
+
+    <div id="pieChart"></div>
+    <div id="barChart"></div>  
+    <div id="lineChart"></div>
+    <script type="text/javascript">
+    
+/*
+################ FORMATS ##################
+-------------------------------------------
+*/
+
+var 	formatAsPercentage = d3.format("%"),
+		formatAsPercentage1Dec = d3.format(".1%"),
+		formatAsInteger = d3.format(","),
+		fsec = d3.time.format("%S s"),
+		fmin = d3.time.format("%M m"),
+		fhou = d3.time.format("%H h"),
+		fwee = d3.time.format("%a"),
+		fdat = d3.time.format("%d d"),
+		fmon = d3.time.format("%b")
+		;
+
+/*
+############# PIE CHART ###################
+-------------------------------------------
+*/
+
+function dsPieChart(){
+
+	var dataset = [
+			{category: "Intermediate", measure: 0.25}, 
+	      {category: "Advanced", measure: 0.25}, 
+	      {category: "Higher", measure: 0.25}, 
+              {category: "All", measure: 0.25} 
+//	      {category: "Standards", measure: XX}, 
+	      ]
+	      ;
+/* Set size of pie chart*/
+	var 	width = 475,
+		   height = 475,
+		   outerRadius = Math.min(width, height) /2,
+		   innerRadius = outerRadius,   
+		   // for animation - sets movement of pie slices on selection
+		   innerRadiusFinal = outerRadius * .55, //innerRadiusFinal is inner radius of pie slices
+		   innerRadiusFinal3 = outerRadius* .5, //innerRadiusFinal3 is inner radius of pie slices on annimating
+		   color = d3.scale.category20c()    //builtin range of colors
+		   ;
+	    
+	var vis = d3.select("#pieChart")
+                    .append("svg:svg")        //create the SVG element inside the <body>
+                    .data([dataset])          //associate our data with the document
+                    .attr("width", width)     //set the width and height of our visualization 
+                                              //(these will be attributes of the <svg> tag
+                    .attr("height", height)
+	     	    .append("svg:g")          //make a group to hold our pie chart
+                    .attr("transform", "translate(" + outerRadius + "," + outerRadius + ")") //move the center of the pie chart 
+                                                                                             //from 0, 0 to radius, radius
+		    ;
+				
+   var arc = d3.svg.arc()              //this will create <path> elements for us using arc data
+        	.outerRadius(outerRadius)
+                .innerRadius(innerRadius);
+   
+   // for animation
+   var arcFinal = d3.svg.arc().innerRadius(innerRadiusFinal).outerRadius(outerRadius); //initial inner radius
+   var arcFinal3 = d3.svg.arc().innerRadius(innerRadiusFinal3).outerRadius(outerRadius); //inner radius on annimation
+
+   var pie = d3.layout.pie()           //this will create arc data for us given a list of values
+               .value(function(d) { return d.measure; });    //we must tell it out to access the value of each element in our data array
+
+   var arcs = vis.selectAll("g.slice")     //this selects all <g> elements with class slice (there aren't any yet)
+                 .data(pie)                //associate the generated pie data (an array of arcs, each having startAngle, endAngle and value properties) 
+                 .enter()                  //this will create <g> elements for every "extra" data element that should be associated with a selection. 
+                                           //The result is creating a <g> for every object in the data array
+                 .append("svg:g")          //create a group to hold each slice (we will have a <path> and a <text> element associated with each slice)
+                 .attr("class", "slice")   //allow us to style things in the slices (like text)
+                 .on("mouseover", mouseover) //Too animate pie slices
+    				.on("mouseout", mouseout)
+    				.on("click", up)
+    				;
+    				
+        arcs.append("svg:path")
+            .attr("fill", function(d, i) { return color(i); } ) //set the color for each slice to be chosen from the color function defined above
+            // When pie segment is clicked this sets up to updating event ("hover_data_update" was formerly "hb"
+            .on("click", function (d) {
+                                   // d3.select(this)
+                                      //.attr('fill','red');
+                                    hover_text_update = d.data.category; // assign event for dynamic value on pie chart segment click!
+                                    console.log(hover_text_update);
+                                    })
+                                        .attr("d", arc)     //this creates the actual SVG path using the associated data (pie) with the arc drawing function
+            .append("svg:title") //mouseover title showing the figures
+
+            d3.selectAll("g.slice")
+                .selectAll("path").transition()
+		.duration(750)
+		.delay(10)
+		.attr("d", arcFinal )
+		;
+	
+	  // Add a label to the larger arcs, translated to the arc centroid and rotated - adds level names.
+	  // source: http://bl.ocks.org/1305337#index.html
+	  arcs.filter(function(d) { return d.endAngle - d.startAngle > .2; })
+	  		.append("svg:text")
+	      .attr("dy", ".35em")
+	      .attr("text-anchor", "middle")
+	      .attr("transform", function(d) { return "translate(" + arcFinal.centroid(d) + ")rotate(" + angle(d) + ")"; })
+	      .text(function(d) { return d.data.category; }) //this shows level text
+	      ;
+	   
+	   // Computes the label angle of an arc, converting from radians to degrees.
+		function angle(d) {
+		    var a = (d.startAngle + d.endAngle) * 90 / Math.PI - 90;
+		    return a > 90 ? a - 180 : a;
+		}
+		
+		// Pie chart title 1 (Apps Level)			
+		vis.append("svg:text")
+	     	.attr("dy", ".2em") //Positions the text in the pie
+	        .attr("text-anchor", "middle")
+	        .text("Apprenticeship Level")
+	        .attr("class","title")
+	        ;		    
+		// Pie chart title 2 (2015/16)			
+		vis.append("svg:text")
+	     	.attr("dy", "2em") //Positions the text in the pie
+	        .attr("text-anchor", "middle")
+	        .text("2015/16")
+	        .attr("class","title")
+	        ;	
+		
+	function mouseover() {
+	  d3.select(this).select("path").transition()
+	      .duration(750) // Time for pie segment animation on selection
+	        		.attr("d", arcFinal3)
+	        		;
+	}
+	
+	function mouseout() {
+	  d3.select(this).select("path").transition()
+	      .duration(750) // Time for pie segment to receed on selecting a different segment 
+	        		.attr("d", arcFinal)
+	        		;
+	}
+        
+	function up(d, i) {
+				/* update bar chart when user selects piece of the pie chart */
+				updateBarChart(d.data.category, color(i));
+				updateLineChart(d.data.category, color(i));
+	}
+}
+
+dsPieChart();
+
+/*
+############# BAR CHART ###################
+-------------------------------------------
+*/
+
+var datasetBarChart = [
+{ group: "All", category: "U19", measure: 131400 },  
+{ group: "All", category: "19-24", measure: 153900 }, 
+{ group: "All", category: "25+", measure: 224100 }, 
+{ group: "All", category: "All ages", measure: 509400 }, 
+{ group: "Intermediate", category: "U19", measure: 86900 }, 
+{ group: "Intermediate", category: "19-24", measure: 84900 },  
+{ group: "Intermediate", category: "25+", measure: 119500 }, 
+{ group: "Intermediate", category: "All ages", measure: 291300 },  
+{ group: "Advanced", category: "U19", measure: 42700 },  
+{ group: "Advanced", category: "19-24", measure: 63100 }, 
+{ group: "Advanced", category: "25+", measure: 85000 }, 
+{ group: "Advanced", category: "All ages", measure: 190900 }, 
+{ group: "Higher", category: "U19", measure: 1800 },  
+{ group: "Higher", category: "19-24", measure: 5800 }, 
+{ group: "Higher", category: "24+", measure: 19600 }, 
+{ group: "Higher", category: "All ages", measure: 27200 }
+//{ group: "Standards", category: "U19", measure:  },  
+//{ group: "Standards", category: "19-24", measure:  },   
+//{ group: "Standards", category: "24+", measure:  }, 
+//{ group: "Standards", category: "All ages", measure:  },
+]
+;
+
+// set initial group value
+var group = "All"; // starts with all apps first
+
+function datasetBarChosen(group) {
+	var ds = [];
+	for (x in datasetBarChart) {
+		 if(datasetBarChart[x].group==group){
+		 	ds.push(datasetBarChart[x]);
+		 } 
+		}
+	return ds;
+}
+
+// set bar chart size dimension
+function dsBarChartBasics() {
+		var margin = {top: 50, right: 5, bottom: 20, left: 50},
+		width = 600 - margin.left - margin.right, //for setting width of bar chart
+                height = 250 - margin.top - margin.bottom,
+		colorBar = d3.scale.category20(),
+		barPadding = 1
+		;
+		
+		return {
+			margin : margin, 
+			width : width, 
+			height : height, 
+			colorBar : colorBar, 
+			barPadding : barPadding
+		}			
+		;
+}
+
+function dsBarChart() {
+	var firstDatasetBarChart = datasetBarChosen(group);         	
+	var basics = dsBarChartBasics();
+	var margin = basics.margin,
+		width = basics.width,
+                height = basics.height,
+		colorBar = basics.colorBar,
+		barPadding = basics.barPadding
+		;
+					
+	var 	xScale = d3.scale.linear()
+		.domain([0, firstDatasetBarChart.length])
+		.range([0, width])
+		;
+						
+	// Create linear y scale 
+	// Purpose: No matter what the data is, the bar should fit into the svg area; bars should not
+	// get higher than the svg height. Hence incoming data needs to be scaled to fit into the svg area.  
+	var yScale = d3.scale.linear()
+			// use the max funtion to derive end point of the domain (max value of the dataset)
+			// do not use the min value of the dataset as min of the domain as otherwise you will not see the first bar
+		   .domain([0, d3.max(firstDatasetBarChart, function(d) { return d.measure; })])
+		   // As coordinates are always defined from the top left corner, the y position of the bar
+		   // is the svg height minus the data value. So you basically draw the bar starting from the top. 
+		   // To have the y position calculated by the range function
+		   .range([height, 0])
+		   ;
+	
+	//Create SVG element	
+	var svg = d3.select("#barChart")
+		    .append("svg")
+		    .attr("width", width + margin.left + margin.right)
+		    .attr("height", height + margin.top + margin.bottom)
+		    .attr("id","barChartPlot")
+		    ;
+	
+	var plot = svg
+		    .append("g")
+		    .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+		    ;
+	            
+	plot.selectAll("rect")
+		   .data(firstDatasetBarChart)
+		   .enter()
+		   .append("rect")
+			.attr("x", function(d, i) {
+			    return xScale(i);
+			})
+		   .attr("width", width / firstDatasetBarChart.length - barPadding)   
+			.attr("y", function(d) {
+			    return yScale(d.measure);
+			})  
+			.attr("height", function(d) {
+			    return height-yScale(d.measure);
+			})
+			.attr("fill", "lightgrey")
+			;
+	
+	// Add y labels to plot	
+	plot.selectAll("text")
+	.data(firstDatasetBarChart)
+	.enter()
+	.append("text")
+	.text(function(d) {
+			return formatAsInteger(d3.round(d.measure));
+	})
+	.attr("text-anchor", "middle")
+	// Set x position to the left edge of each bar plus half the bar width
+	.attr("x", function(d, i) {
+			return (i * (width / firstDatasetBarChart.length)) + ((width / firstDatasetBarChart.length - barPadding) / 2);
+	})
+	.attr("y", function(d) {
+			return yScale(d.measure)- 3; //add + 14 to add numbers to bars
+	})
+	.attr("class", "yAxis")
+	;
+	
+	// Add x labels to chart		
+	var xLabels = svg
+		    .append("g")
+		    .attr("transform", "translate(" + margin.left + "," + (margin.top + height)  + ")")
+		    ;
+	
+	xLabels.selectAll("text.xAxis")
+		  .data(firstDatasetBarChart)
+		  .enter()
+		  .append("text")
+		  .text(function(d) { return d.category;})
+		  .attr("text-anchor", "middle")
+			// Set x position to the left edge of each bar plus half the bar width
+						   .attr("x", function(d, i) {
+						   		return (i * (width / firstDatasetBarChart.length)) + ((width / firstDatasetBarChart.length - barPadding) / 2);
+						   })
+		  .attr("y", 15)
+		  .attr("class", "xAxis")
+		  ;			
+	 
+	// Title	
+	svg.append("text")
+		.attr("x", (width + margin.left + margin.right)/2)
+		.attr("y", 14) //Position of bar chart title
+		.attr("class","title")				
+		.attr("text-anchor", "middle")
+		.text("Total Apprenticeship Starts by Age 2015/16")
+		;
+}
+
+dsBarChart();
+
+ /* ** UPDATE CHART ** */
+ 
+/* updates bar chart on request */
+
+function updateBarChart(group, colorChosen) {
+		var currentDatasetBarChart = datasetBarChosen(group);
+		var basics = dsBarChartBasics();
+		var margin = basics.margin,
+			width = basics.width,
+		   height = basics.height,
+			colorBar = basics.colorBar,
+			barPadding = basics.barPadding
+			;
+		var 	xScale = d3.scale.linear()
+			.domain([0, currentDatasetBarChart.length])
+			.range([0, width])
+			;
+		var yScale = d3.scale.linear()
+	      .domain([0, d3.max(currentDatasetBarChart, function(d) { return d.measure; })])
+	      .range([height,0])
+	      ;
+	   var svg = d3.select("#barChart svg");
+	   var plot = d3.select("#barChartPlot")
+	   	.datum(currentDatasetBarChart)
+		   ;
+	
+	  		/* Note that here we only have to select the elements - no more appending! */
+	  	plot.selectAll("rect")
+	      .data(currentDatasetBarChart)
+	      .transition()
+			.duration(750)
+			.attr("x", function(d, i) {
+			    return xScale(i);
+			})
+		   .attr("width", width / currentDatasetBarChart.length - barPadding)   
+			.attr("y", function(d) {
+			    return yScale(d.measure);
+			})  
+			.attr("height", function(d) {
+			    return height-yScale(d.measure);
+			})
+			.attr("fill", colorChosen)
+			;
+		
+		plot.selectAll("text.yAxis") // target the text element(s) which has a yAxis class defined
+			.data(currentDatasetBarChart)
+			.transition()
+			.duration(750)
+		   .attr("text-anchor", "middle")
+		   .attr("x", function(d, i) {
+		   		return (i * (width / currentDatasetBarChart.length)) + ((width / currentDatasetBarChart.length - barPadding) / 2);
+		   })
+		   .attr("y", function(d) {
+		   		return yScale(d.measure) - 3; //add + 14 numbers in bars
+		   })
+		   .text(function(d) {
+				return formatAsInteger(d3.round(d.measure));
+		   })
+		   .attr("class", "yAxis")					 
+		;
+		
+		svg.selectAll("text.title") // target the text element(s) which has a title class defined
+			.attr("x", (width + margin.left + margin.right)/2)
+			.attr("y", 15)
+			.attr("class","title")				
+			.attr("text-anchor", "middle")
+			.text(group + " Apprenticeship Starts by Age 2015/16")
+		;
+}
+
+/*
+############# LINE CHART ##################
+-------------------------------------------
+*/
+
+var datasetLineChart = [
+{ group: "All", category: "2010/11", measure: 457200 }, 
+{ group: "All", category: "2011/12", measure: 520600 }, 
+{ group: "All", category: "2012/13", measure: 510200 }, 
+{ group: "All", category: "2013/14", measure: 440400 }, 
+{ group: "All", category: "2014/15", measure: 499900 },
+{ group: "All", category: "2015/16", measure: 509400 },
+{ group: "Intermediate", category: "2010/11", measure: 301100 }, 
+{ group: "Intermediate", category: "2011/12", measure: 329000 }, 
+{ group: "Intermediate", category: "2012/13", measure: 292800 }, 
+{ group: "Intermediate", category: "2013/14", measure: 286500 }, 
+{ group: "Intermediate", category: "2014/15", measure: 298300 },
+{ group: "Intermediate", category: "2015/16", measure: 291300 },
+{ group: "Advanced", category: "2010/11", measure: 153900 }, 
+{ group: "Advanced", category: "2011/12", measure: 187900 }, 
+{ group: "Advanced", category: "2012/13", measure: 207700 }, 
+{ group: "Advanced", category: "2013/14", measure: 144700 }, 
+{ group: "Advanced", category: "2014/15", measure: 181800 }, 
+{ group: "Advanced", category: "2015/16", measure: 190900 }, 
+//{ group: "Standards", category: "2010/11", measure:  }, 
+//{ group: "Standards", category: "2011/12", measure:  }, 
+//{ group: "Standards", category: "2012/13", measure:  }, 
+//{ group: "Standards", category: "2013/14", measure:  }, 
+//{ group: "Standards", category: "2014/15", measure:  }, 
+{ group: "Higher", category: "2010/11", measure: 2200 }, 
+{ group: "Higher", category: "2011/12", measure: 3700 }, 
+{ group: "Higher", category: "2012/13", measure: 9800 }, 
+{ group: "Higher", category: "2013/14", measure: 9200 },
+{ group: "Higher", category: "2014/15", measure: 19800 },
+{ group: "Higher", category: "2015/16", measure: 27200 }
+]
+;
+var x;
+//////////////////////this is the mistake//////////////////
+// set initial category value
+//var group = hover_text_update;
+/////////////////////////////////////////////////////////////
+function datasetLineChartChosen(hover_text_update) {
+    //group = hover_text_update || 'All';
+	 ds = []; // should be a global variable
+	for (x in datasetLineChart) {
+		 if(datasetLineChart[x].group===hover_text_update){ /// this needs to update dynamically it was static!
+		 	ds.push(datasetLineChart[x]);
+		 } 
+		}
+	return ds;
+}
+
+function dsLineChartBasics() {
+
+	var margin = {top: 100, right: 10, bottom: 0, left: 50},
+	    width = 650 - margin.left - margin.right, //set width of line chart
+	    height = 220 - margin.top - margin.bottom
+	    ;		
+		return {
+			margin : margin, 
+			width : width, 
+			height : height
+		}			
+		;
+}
+
+function dsLineChart() {
+	 firstDatasetLineChart = datasetLineChartChosen(group);    
+	var basics = dsLineChartBasics();
+	var margin = basics.margin,
+            width = basics.width,
+	    height = basics.height+70 //positions "Total (15/16)"
+	    ;
+
+        var xScale = d3.scale.linear()
+	    .domain([0, firstDatasetLineChart.length-1])
+	    .range([0, width])
+	    ;
+
+	var yScale = d3.scale.linear()
+	    .domain([0, d3.max(firstDatasetLineChart, function(d) { return d.measure; })])
+	    .range([height, 0])
+	    ;
+	
+	var line = d3.svg.line()
+	    .x(function(d, i) { return xScale(i); })
+	    .y(function(d) { return yScale(d.measure)+80; })
+	    ;
+	
+	var svg = d3.select("#lineChart").append("svg")
+	    .datum(firstDatasetLineChart)
+	    .attr("width", width + margin.left + margin.right)
+	    .attr("height", height + 50 + margin.top + margin.bottom)
+            ;
+	    // create group and move it so that margins are respected (space for axis and title)
+	    
+	var plot = svg
+	    .append("g")
+	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+	    .attr("id", "lineChartPlot")
+	    ;
+
+	/* descriptive titles as part of plot -- start */
+	var dsLength=firstDatasetLineChart.length;
+        /* Added formatAsInteger here to get ',' in total figure   */
+	plot.append("text")
+		.text(formatAsInteger(firstDatasetLineChart[dsLength-1].measure)+ " (2015/16)" )
+		.attr("id","lineChartTitle2")
+		.attr("x",width/2)
+		.attr("y",height/100) //position of Total:509400	
+		;      
+        // Need a better approach to positioning years!!        
+        plot.append("text")
+		.text("10/11")
+		.attr("id","lineChartTitle3")
+		.attr("x",width/40)
+		.attr("y",height+30)	
+		;      
+        plot.append("text")
+		.text("11/12")
+		.attr("id","lineChartTitle3")
+		.attr("x",width/5)
+		.attr("y",height+30)	
+		;              
+        plot.append("text")
+		.text("12/13")
+		.attr("id","lineChartTitle3")
+		.attr("x",width/2.6)
+		.attr("y",height+30)	
+		;      
+        plot.append("text")
+		.text("13/14")
+		.attr("id","lineChartTitle3")
+		.attr("x",width/1.7)
+		.attr("y",height+30)	
+		;      
+        plot.append("text")
+		.text("14/15")
+		.attr("id","lineChartTitle3")
+		.attr("x",width/1.25)
+		.attr("y",height+30)	
+		;      
+
+        plot.append("text")
+		.text("15/16")
+		.attr("id","lineChartTitle3")
+		.attr("x",width/1.025)
+		.attr("y",height+30)	
+		;      
+
+        /* descriptive titles -- end */    
+	plot.append("path")
+	    .attr("class", "line")
+	    .attr("d", line)	
+	    // add color
+		.attr("stroke", "lightgrey")
+	    ;
+	
+        // This section plots the line dots and hover text (.text)
+	plot.selectAll(".dot")
+	    .data(firstDatasetLineChart)
+	    .enter()
+            .append("circle")
+            .attr("class", "dot")
+	    //.attr("stroke", function (d) { return d.measure==datasetMeasureMin ? "red" : (d.measure==datasetMeasureMax ? "green" : "steelblue") } )
+	    .attr("fill", function (d) { return d.measure===d3.min(firstDatasetLineChart, function(d) { return d.measure; }) ? "red" : (d.measure===d3.max(firstDatasetLineChart, function(d) { return d.measure; }) ? "green" : "white") } )	   
+	    .attr("cx", line.x())
+	    .attr("cy", line.y())
+	    .attr("r", 3.5)
+	    .attr("stroke", "lightgrey")
+	    .append("title")
+            .attr('class','mytitle')  ////you  forget to give your titles a class attribute which you can target directly
+//	    .text(function(d) { return d.category + ": " + formatAsInteger(d.measure); })
+            
+	    .text(function(d,i) { return ds[i].category + ": " + formatAsInteger(ds[i].measure); }) //add formatAsInteger here to put ',' in hover text
+        ;
+
+	svg.append("text")
+		.text("All Age Apprentice Starts by Level: 2010/11-15/16")
+		.attr("id","lineChartTitle1")	
+		.attr("x",margin.left + ((width + margin.right)/2))
+		.attr("y", 150) //position of title
+		;
+}
+
+dsLineChart();
+
+/* ** UPDATE CHART ** */
+ 
+/* updates bar chart on request */
+function updateLineChart(group, colorChosen) {
+	var currentDatasetLineChart = datasetLineChartChosen(group);   
+	var basics = dsLineChartBasics();
+	var margin = basics.margin,
+	    width = basics.width,
+            height = basics.height
+	    ;
+	var xScale = d3.scale.linear()
+	    .domain([0, currentDatasetLineChart.length-1])
+	    .range([0, width])
+	    ;
+	var yScale = d3.scale.linear()
+	    .domain([0, d3.max(currentDatasetLineChart, function(d) { return d.measure; })])
+	    .range([height, 0])
+	    ;
+	var line = d3.svg.line()
+            .x(function(d, i) { return xScale(i); })
+            .y(function(d) { return yScale(d.measure)+80; })
+            ;
+        var plot = d3.select("#lineChartPlot")
+            .datum(currentDatasetLineChart)
+	    ;
+	   
+/* descriptive titles as part of plot */	   
+	plot
+	.select("path")
+		.transition()
+		.duration(750)			    
+	   .attr("class", "line")
+	   .attr("d", line)	
+	   // add color
+		.attr("stroke", colorChosen)
+	   ;
+	   
+	var path = plot
+		.selectAll(".dot")
+	   .data(currentDatasetLineChart)
+	   .transition()
+		.duration(750)
+	   .attr("cx", line.x())
+	   .attr("cy", line.y())
+	   ;
+           
+           ////don't forget to give your titles a class attribute which you can target directly
+	d3.selectAll('.mytitle')
+                .data(ds)
+                .text(function (d) {return d. category + ": " + formatAsInteger(d.measure);}) //add formatAsInteger here to add ',' for hover numbers after updating
+                ;
+console.log('worked');
+}
+    </script>
+  </body>
+</html>
